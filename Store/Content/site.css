@@ -1,0 +1,17 @@
+﻿.ngFade.ng-enter {
+    transition: 0.7s ease-in;
+    opacity: 0;
+}
+
+.ngFade.ng-enter-active {
+    opacity: 1;
+}
+
+.ngFade.ng-leave {
+    transition: 0.7s ease-in;
+    opacity: 1;
+}
+
+.ngFade.ng-leave-active {
+    opacity: 0;
+}
