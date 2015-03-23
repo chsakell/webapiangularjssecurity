@@ -149,6 +149,8 @@
     <Content Include="app\controllers\gadgetsStore.js" />
     <Content Include="app\filters\storeFilters.js" />
     <Content Include="app\mainApp.js" />
+    <Content Include="app\services\accountService.js" />
+    <Content Include="app\services\storeService.js" />
     <Content Include="app\views\checkout.html" />
     <Content Include="app\views\login.html" />
     <Content Include="app\views\register.html" />

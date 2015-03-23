@@ -6,59 +6,73 @@
     .constant('registerUrl', '/api/Account/Register')
     .constant('tokenUrl', '/Token')
     .constant('tokenKey', 'accessToken')
-	.controller('gadgetStoreCtrl', function ($scope, $http, $location, gadgetsUrl, categoriesUrl, ordersUrl, tempOrdersUrl, cart, tokenKey) {
+	.controller('gadgetStoreCtrl', function ($scope, $http, $location, storeService, accountService, cart) {
 
 	    $scope.data = {};
 
-	    $http.get(gadgetsUrl)
-			.success(function (data) {
-			    $scope.data.gadgets = data;
-			})
-			.error(function (error) {
-			    $scope.data.error = error;
-			});
+	    // Callbacks
+	    var gadgetsLoadedCallback = function (data) {
+	        $scope.data.gadgets = data;
+	    }
 
-	    $http.get(categoriesUrl)
-        .success(function (data) {
-            $scope.data.categories = data;
-        })
-        .error(function (error) {
-            $scope.data.error = error;
-        });
+	    var gadgetsNotLoadedError = function (error) {
+	        console.log(error);
+	        $scope.data.error = error;
+	    }
+
+	    var categoriesLoadedCallback = function (data) {
+	        $scope.data.categories = data;
+	    }
+
+	    var categoriesNotLoadedCallback = function (error) {
+	        $scope.data.error = error;
+	    }
+
+	    var orderSubmittedCallback = function (data, status, headers, config) {
+	        $scope.data.OrderLocation = headers('Location');
+	        $scope.data.OrderID = data.OrderID;
+	        cart.getProducts().length = 0;
+	        $scope.saveOrder();
+	        $location.path("/complete");
+	    }
+
+	    var orderSubmittionFailedCallback = function (data, status, headers, config) {
+	        if (status != 401)
+	            $scope.data.orderError = data.Message;
+	        else {
+	            $location.path("/login");
+	        }
+	    }
+
+	    var tempOrderLoadedCallback = function (data) {
+	        if (data) {
+	            for (var i = 0; i < data.length; i++) {
+	                var item = data[i];
+	                cart.pushItem(item);
+	            }
+	        }
+	    }
+
+	    storeService.getGadgets()
+            .success(gadgetsLoadedCallback)
+            .error(gadgetsNotLoadedError);
+
+	    storeService.getCategories()
+        .success(categoriesLoadedCallback)
+        .error(categoriesNotLoadedCallback);
 
 	    $scope.sendOrder = function (shippingDetails) {
-	        var token = sessionStorage.getItem(tokenKey);
-	        console.log(token);
-
-	        var headers = {};
-	        if (token) {
-	            headers.Authorization = 'Bearer ' + token;
-	        }
-
 	        var order = angular.copy(shippingDetails);
 	        order.gadgets = cart.getProducts();
-	        $http.post(ordersUrl, order, { headers: { 'Authorization': 'Bearer ' + token } })
-			.success(function (data, status, headers, config) {
-			    $scope.data.OrderLocation = headers('Location');
-			    $scope.data.OrderID = data.OrderID;
-			    cart.getProducts().length = 0;
-			    $scope.saveOrder();
-			    $location.path("/complete");
-			})
-			.error(function (data, status, headers, config) {
-			    if (status != 401)
-			        $scope.data.orderError = data.Message;
-			    else {
-			        $location.path("/login");
-			    }
-			}).finally(function () {
-			});
+	        storeService.submitOrder(order)
+			.success(orderSubmittedCallback)
+			.error(orderSubmittionFailedCallback);
 	    }
 
 	    $scope.saveOrder = function () {
 	        var currentProducts = cart.getProducts();
 
-	        $http.post(tempOrdersUrl, currentProducts)
+	        storeService.saveTempOrder(currentProducts)
 			    .success(function (data, status, headers, config) {
 			    }).error(function (error) {
 			    }).finally(function () {
@@ -66,18 +80,11 @@
 	    }
 
 	    $scope.checkSessionGadgets = function () {
-	        $http.get(tempOrdersUrl)
-            .success(function (data) {
-                if (data) {
-                    for (var i = 0; i < data.length; i++) {
-                        var item = data[i];
-                        cart.pushItem(item);
-                    }
-                }
-            })
-            .error(function (error) {
-                console.log('error checking session: ' + error);
-            });
+	        storeService.loadTempOrder()
+	        .success(tempOrderLoadedCallback)
+	        .error(function (error) {
+	            console.log('error checking session: ' + error);
+	        });
 	    }
 
 	    $scope.showFilter = function () {
@@ -93,16 +100,11 @@
 	    }
 
 	    $scope.isUserAuthenticated = function () {
-	        var token = sessionStorage.getItem(tokenKey);
-
-	        if (token)
-	            return true;
-	        else
-	            return false;
+	        return accountService.isUserAuthenticated();
 	    }
 
 	    $scope.logout = function () {
-	        sessionStorage.removeItem(tokenKey);
+	        accountService.logout();
 	    }
 
 	});

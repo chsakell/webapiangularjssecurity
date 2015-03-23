@@ -1,8 +1,46 @@
 ﻿angular.module("gadgetsStore")
-    .controller('accountController', function ($scope, $http, $location, registerUrl, tokenUrl, tokenKey) {
+    .controller('accountController', function ($scope, $http, $location, tokenKey, accountService) {
 
         $scope.hasLoginError = false;
         $scope.hasRegistrationError = false;
+
+        // Callbacks
+        var successRegistrationCallback = function (data, status, headers, config) {
+            $location.path("/login");
+        }
+
+        var successLoginCallback = function (result) {
+            console.log(result);
+            $location.path("/submitorder");
+            sessionStorage.setItem(tokenKey, result.access_token);
+            $scope.hasLoginError = false;
+            $scope.isAuthenticated = true;
+        }
+
+        var errorRegistrationCallback = function (result, status, headers, config) {
+            $scope.hasRegistrationError = true;
+            var errorMessage = result.Message;
+            console.log(result);
+            $scope.registrationErrorDescription = errorMessage + ':';
+
+            if (result.ModelState['model.Email'])
+                $scope.registrationErrorDescription += result.ModelState['model.Email'];
+
+            if (result.ModelState['model.Password'])
+                $scope.registrationErrorDescription += result.ModelState['model.Password'];
+
+            if (result.ModelState['model.ConfirmPassword'])
+                $scope.registrationErrorDescription += result.ModelState['model.ConfirmPassword'];
+
+            if (result.ModelState[''])
+                $scope.registrationErrorDescription += result.ModelState[''];
+        }
+
+        var errorLoginCallback = function (data, status, headers, config) {
+            console.log(data);
+            $scope.hasLoginError = true;
+            $scope.loginErrorDescription = data.error_description;
+        }
 
         // Registration
         $scope.register = function () {
@@ -16,31 +54,11 @@
                 ConfirmPassword: $scope.registerPassword2
             };
 
-            $http.post(registerUrl, JSON.stringify(data))
-                    .success(function (data, status, headers, config) {
-                        $location.path("/login");
-                    }).error(function (data, status, headers, config) {
-                        $scope.hasRegistrationError = true;
-                        var errorMessage = data.Message;
-                        console.log(data);
-                        $scope.registrationErrorDescription = errorMessage;
-
-                        if (data.ModelState['model.Email'])
-                            $scope.registrationErrorDescription += data.ModelState['model.Email'];
-
-                        if (data.ModelState['model.Password'])
-                            $scope.registrationErrorDescription += data.ModelState['model.Password'];
-
-                        if (data.ModelState['model.ConfirmPassword'])
-                            $scope.registrationErrorDescription += data.ModelState['model.ConfirmPassword'];
-
-                        if (data.ModelState[''])
-                            $scope.registrationErrorDescription +=  data.ModelState[''];
-
-                    }).finally(function () {
-                    });
+            accountService.register(JSON.stringify(data))
+                .success(successRegistrationCallback).error(errorRegistrationCallback);
         }
 
+        // Generate Token - Login
         $scope.login = function () {
             $scope.result = '';
 
@@ -50,23 +68,9 @@
                 password: $scope.loginPassword
             };
 
-            $http({
-                method: 'POST',
-                url: tokenUrl,
-                data: $.param(loginData),
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-                }
-            }).then(function (result) {
-                console.log(result);
-                $location.path("/submitorder");
-                sessionStorage.setItem(tokenKey, result.data.access_token);
-                $scope.hasLoginError = false;
-                $scope.isAuthenticated = true;
-            }, function (data, status, headers, config) {
-                $scope.hasLoginError = true;
-                $scope.loginErrorDescription = data.data.error_description;
-            });
+            accountService.generateAccessToken(loginData)
+                .success(successLoginCallback)
+                    .error(errorLoginCallback);
 
         }
 
